@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import { Menu, Option } from '@/types';
+import MenuModal from '@/components/MenuModal';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<'menus' | 'options'>('menus');
@@ -11,6 +12,7 @@ export default function Admin() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
   
   const router = useRouter();
 
@@ -37,56 +39,32 @@ export default function Admin() {
     checkAuth();
   }, []);
 
-  // 메뉴와 옵션 데이터 가져오기
+  // Supabase 연동을 위한 데이터 가져오기 함수 수정
   useEffect(() => {
     if (!isAuthenticated) return;
 
     async function fetchData() {
       setIsLoading(true);
       try {
-        // 실제 구현에서는 Supabase에서 데이터를 가져오는 코드를 작성합니다
-        // 예시 데이터 사용
-        const mockMenus: Menu[] = [
-          {
-            id: 1,
-            name: '수비드 비프 포케',
-            description: '수비드 방식으로 조리한 비프를 사용한 포케',
-            price: 11900,
-            imageUrl: '/images/beef-poke.jpg',
-            category: 'poke'
-          },
-          {
-            id: 2,
-            name: '닭가슴살 포케',
-            description: '부드러운 닭가슴살을 사용한 포케',
-            price: 10900,
-            imageUrl: '/images/chicken-poke.jpg',
-            category: 'poke'
-          }
-        ];
-        
-        const mockOptions: Option[] = [
-          { id: 1, name: '100g', price: 0, type: 'main_topping' },
-          { id: 2, name: '200g', price: 3000, type: 'main_topping' },
-          { id: 3, name: '사우전아일랜드', price: 0, type: 'sauce' },
-          { id: 4, name: '어니언', price: 0, type: 'sauce' },
-          { id: 5, name: '오리엔탈', price: 0, type: 'sauce' },
-          { id: 6, name: '발사믹', price: 0, type: 'sauce' },
-          { id: 7, name: '스리라차마요', price: 0, type: 'sauce' },
-          { id: 8, name: '닭가슴살', price: 2000, type: 'additional_topping' },
-          { id: 9, name: '수비드비프', price: 3000, type: 'additional_topping' },
-          { id: 10, name: '오리훈제', price: 3500, type: 'additional_topping' },
-          { id: 11, name: '연어훈제', price: 3500, type: 'additional_topping' },
-          { id: 12, name: '버터쉬림프', price: 3000, type: 'additional_topping' },
-          { id: 13, name: '올리브', price: 1000, type: 'side_topping' },
-          { id: 14, name: '콘', price: 1000, type: 'side_topping' },
-          { id: 15, name: '크래미', price: 1500, type: 'side_topping' },
-        ];
+        // Supabase에서 실제 데이터 가져오기
+        const { data: menuData, error: menuError } = await supabase
+          .from('menus')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-        setMenus(mockMenus);
-        setOptions(mockOptions);
+        if (menuError) throw menuError;
+        setMenus(menuData || []);
+
+        const { data: optionData, error: optionError } = await supabase
+          .from('options')
+          .select('*')
+          .order('type', { ascending: true });
+
+        if (optionError) throw optionError;
+        setOptions(optionData || []);
       } catch (error) {
         console.error('데이터를 가져오는 중 오류 발생:', error);
+        alert('데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
       }
@@ -106,29 +84,58 @@ export default function Admin() {
     return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
 
-  // 새 메뉴 저장
-  const handleSaveMenu = async (menu: Menu) => {
+  // 새 메뉴 저장 함수 수정
+  const handleSaveMenu = async (menuData: Omit<Menu, 'id'>) => {
     try {
-      // 실제 구현에서는 Supabase에 저장하는 코드로 대체합니다
-      console.log('메뉴 저장:', menu);
+      setIsLoading(true);
       
-      // 목업 저장
-      if (menu.id) {
-        // 기존 메뉴 수정
-        setMenus(menus.map(m => m.id === menu.id ? menu : m));
-      } else {
-        // 새 메뉴 추가
-        const newMenu = {
-          ...menu,
-          id: Math.max(...menus.map(m => m.id), 0) + 1
-        };
-        setMenus([...menus, newMenu]);
+      let imageUrl = '';
+      
+      // 이미지가 있는 경우 Storage에 업로드
+      if (menuData.imageUrl) {
+        const file = menuData.imageUrl as unknown as File;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `menu-images/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // 이미지 URL 가져오기
+        const { data: { publicUrl } } = supabase.storage
+          .from('images')
+          .getPublicUrl(filePath);
+
+        imageUrl = publicUrl;
       }
-      
-      alert('메뉴가 저장되었습니다.');
+
+      // 메뉴 데이터 저장
+      const { data, error } = await supabase
+        .from('menus')
+        .insert([{
+          name: menuData.name,
+          description: menuData.description,
+          price: menuData.price,
+          category: menuData.category,
+          image_url: imageUrl,
+          is_available: true
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setMenus([data, ...menus]);
+      setIsMenuModalOpen(false);
+      alert('메뉴가 성공적으로 추가되었습니다.');
     } catch (error) {
       console.error('메뉴 저장 중 오류 발생:', error);
       alert('메뉴 저장에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -292,7 +299,10 @@ export default function Admin() {
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">메뉴 목록</h2>
-                    <button className="btn btn-primary">
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => setIsMenuModalOpen(true)}
+                    >
                       새 메뉴 추가
                     </button>
                   </div>
@@ -552,6 +562,13 @@ export default function Admin() {
           )}
         </div>
       </main>
+
+      {/* 메뉴 추가/수정 모달 */}
+      <MenuModal
+        isOpen={isMenuModalOpen}
+        onClose={() => setIsMenuModalOpen(false)}
+        onSave={handleSaveMenu}
+      />
     </>
   );
 } 

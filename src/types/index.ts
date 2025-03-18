@@ -1,10 +1,13 @@
 export interface Menu {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   price: number;
-  imageUrl: string;
+  imageUrl?: string;
   category: string;
+  isAvailable?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Option {

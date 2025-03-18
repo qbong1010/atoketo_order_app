@@ -6,15 +6,15 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>아토케토 무인 주문 시스템</title>
-        <meta name="description" content="아토케토 무인 주문 시스템" />
+        <title>아토키토 터치오더</title>
+        <meta name="description" content="아토키토 터치오더" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="min-h-screen p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
           <header className="mb-10 text-center">
-            <h1 className="text-4xl font-bold text-primary mb-4">아토케토 주문 시스템</h1>
+            <h1 className="text-4xl font-bold text-primary mb-4">아토키토 터치오더</h1>
             <p className="text-lg text-gray-600">원하는 메뉴와 옵션을 선택하고 주문서를 출력해 보세요</p>
           </header>
           
@@ -34,7 +34,7 @@ export default function Home() {
           </div>
           
           <footer className="text-center text-gray-500 mt-12">
-            <p>&copy; {new Date().getFullYear()} 아토케토. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} 아토키토 가든파이브점. All rights reserved.</p>
           </footer>
         </div>
       </main>
